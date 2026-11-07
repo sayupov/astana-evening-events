@@ -16,8 +16,8 @@
 
 - Театральная афиша: Teatr.kz;
 - кино: Kinoafisha;
-- конференции и IT: Astana Hub;
-- выставки и другие события: Ticketon;
+- конференции и IT: Astana Hub и Expomap;
+- выставки и другие события: Astana.kz и Ticketon;
 - прогноз: Open-Meteo.
 
 ## Настройка Telegram
