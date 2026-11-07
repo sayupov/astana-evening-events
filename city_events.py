@@ -14,6 +14,7 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+import xml.etree.ElementTree as ET
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -21,6 +22,53 @@ TZ = ZoneInfo("Asia/Almaty")
 UA = "NewsDigestAstanaEvents/1.0 (+https://github.com/sayupov/news-digest)"
 THEATRE_URL = "https://teatr.kz/ru/astana"
 CINEMA_URL = "https://kz.kinoafisha.info/astana/movies/"
+SOURCES_FILE = os.path.join(os.path.dirname(__file__), "sources.json")
+SOURCE_BATCH_SIZE = 10
+
+
+def monitored_news() -> list[dict]:
+    """Fetch a rotating batch of source-specific Google News RSS queries.
+
+    A daily batch keeps the GitHub Actions job within its time limit while
+    covering all configured sources over time. Items are reported verbatim
+    from the RSS feed with a link, rather than being summarized as facts.
+    """
+    try:
+        with open(SOURCES_FILE, encoding="utf-8") as source_file:
+            sources = [item for item in json.load(source_file)["sources"] if item.get("enabled")]
+    except (OSError, KeyError, TypeError, json.JSONDecodeError):
+        return []
+    if not sources:
+        return []
+    start = datetime.now(TZ).date().toordinal() % len(sources)
+    batch = [sources[(start + number) % len(sources)] for number in range(min(SOURCE_BATCH_SIZE, len(sources)))]
+    result: list[dict] = []
+    seen: set[str] = set()
+    for source in batch:
+        domain = urllib.parse.urlsplit(source["url"]).netloc.removeprefix("www.")
+        query = urllib.parse.urlencode({
+            "q": f"site:{domain}",
+            "hl": "ru",
+            "gl": "KZ",
+            "ceid": "KZ:ru",
+        })
+        try:
+            feed = ET.fromstring(fetch(f"https://news.google.com/rss/search?{query}", timeout=10))
+            item = feed.find("./channel/item")
+            if item is None:
+                continue
+            title = (item.findtext("title") or "").strip()
+            link = (item.findtext("link") or "").strip()
+            key = title.casefold()
+            if not title or not link or key in seen:
+                continue
+            seen.add(key)
+            result.append({"source": source["name"], "title": title, "url": link})
+        except (ET.ParseError, OSError, ValueError, urllib.error.URLError, TimeoutError):
+            continue
+        if len(result) == 3:
+            break
+    return result
 
 
 def fetch(url: str, timeout: int = 25) -> str:
@@ -124,13 +172,16 @@ def build_message() -> str:
         if item not in chosen:
             chosen.append(item)
     now = datetime.now(TZ).strftime("%d.%m.%Y")
-    lines = ["АФИША АСТАНЫ", f"Дата: {now}", weather(), ""]
+    lines = ["АФИША АСТАНЫ И НОВОСТИ", f"Дата: {now}", weather(), ""]
+    news = monitored_news()
+    if news:
+        lines += ["НОВОСТИ И АНАЛИТИКА", *[f"• {entry['source']}: {entry['title']}\\n  {entry['url']}" for entry in news], ""]
     if not chosen:
         lines.append("Не удалось получить актуальные карточки афиши. Откройте театральную и киноафишу по ссылкам ниже.")
     for number, item in enumerate(chosen, 1):
         why = "вариант для культурного вечера" if item["category"] == "Театр" else "доступный вариант в помещении"
         lines += [f"{number}. {item['title']}", f"   {item['category']} · {item['when']} · {item['place']} · {item['price']}", f"   Почему: {why}.", f"   {item['url']}", ""]
-    lines.append("Проверьте наличие мест и точное время по ссылке перед оплатой.")
+    lines.append("Для афиши проверьте наличие мест и точное время по ссылке перед оплатой.")
     if errors:
         lines.append("Не открылись источники: " + ", ".join(errors) + ".")
     return "\n".join(lines).strip()
