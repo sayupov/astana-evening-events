@@ -19,7 +19,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 TZ = ZoneInfo("Asia/Almaty")
-UA = "NewsDigestAstanaEvents/1.0 (+https://github.com/sayupov/news-digest)"
+UA = "NewsDigestAstanaEvents/1.0 (+https://github.com/sayupov/astana-evening-events)"
 THEATRE_URL = "https://teatr.kz/ru/astana"
 CINEMA_URL = "https://kz.kinoafisha.info/astana/movies/"
 SOURCES_FILE = os.path.join(os.path.dirname(__file__), "sources.json")
