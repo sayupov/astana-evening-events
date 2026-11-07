@@ -22,6 +22,8 @@ UA = "AstanaEventsGuide/2.0 (+https://github.com/sayupov/astana-evening-events)"
 THEATRE_URL = "https://teatr.kz/ru/astana"
 CINEMA_URL = "https://kz.kinoafisha.info/astana/movies/"
 HUB_URL = "https://astanahub.com/ru/event/calendar/"
+CONFERENCE_URL = "https://expomap.ru/conference/city/astana/2026/nov/"
+CITY_EVENTS_URL = "https://astana.kz/ru/events/"
 TICKETON_URL = "https://ticketon.kz/astana"
 
 WEATHER_CODES = {
@@ -144,6 +146,31 @@ def jsonld_events(page: str, source_url: str) -> list[dict]:
     return result
 
 
+def conference_items(page: str) -> list[dict]:
+    """Read public conference cards from Expomap's Astana calendar."""
+    text = plain(page)
+    pattern = re.compile(
+        r"(?P<date>\d{2}\.\d{2}\.\d{2}\s*[—-]\s*\d{2}\.\d{2}\.\d{2})\s+"
+        r"Казахстан,\s*Астана\s+(?P<title>.{3,180}?)(?:\s+#|\s+Подробнее|$)"
+    )
+    result, seen = [], set()
+    for match in pattern.finditer(text):
+        title = match.group("title").strip(" .")
+        if title.casefold() in seen:
+            continue
+        seen.add(title.casefold())
+        tail = text[match.end():match.end() + 260]
+        about = re.split(r"\s+#|\s+Подробнее", tail)[0].strip()
+        result.append({
+            "title": title,
+            "when": match.group("date"),
+            "place": "Астана",
+            "about": cut(about) or "Конференция. Подробности и регистрация по ссылке.",
+            "url": CONFERENCE_URL,
+        })
+    return result
+
+
 def event_time(value: str) -> str:
     if not value:
         return "дату и время уточните"
@@ -220,6 +247,8 @@ def build_message() -> str:
         ("театр", THEATRE_URL, theatre_items, "ТЕАТР"),
         ("кино", CINEMA_URL, cinema_items, "КИНО"),
         ("Astana Hub", HUB_URL, lambda page: jsonld_events(page, HUB_URL), "КОНФЕРЕНЦИИ И IT"),
+        ("конференции", CONFERENCE_URL, conference_items, "КОНФЕРЕНЦИИ И IT"),
+        ("Astana.kz", CITY_EVENTS_URL, lambda page: jsonld_events(page, CITY_EVENTS_URL), "ВЫСТАВКИ И ДРУГИЕ СОБЫТИЯ"),
         ("Ticketon", TICKETON_URL, lambda page: jsonld_events(page, TICKETON_URL), "ВЫСТАВКИ И ДРУГИЕ СОБЫТИЯ"),
     ):
         try:
