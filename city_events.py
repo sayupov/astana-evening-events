@@ -22,7 +22,7 @@ UA = "AstanaEventsGuide/2.0 (+https://github.com/sayupov/astana-evening-events)"
 THEATRE_URL = "https://teatr.kz/ru/astana"
 CINEMA_URL = "https://kz.kinoafisha.info/astana/movies/"
 HUB_URL = "https://astanahub.com/ru/event/calendar/"
-CONFERENCE_URL = "https://expomap.ru/conference/city/astana/2026/nov/"
+CONFERENCE_URL = "https://expomap.ru/conference/city/astana/"
 CITY_EVENTS_URL = "https://astana.kz/ru/events/"
 TICKETON_URL = "https://ticketon.kz/astana"
 
